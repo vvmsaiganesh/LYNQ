@@ -1,6 +1,7 @@
 package com.flux.relay.transport
 
 import android.content.Context
+import android.util.Log
 import com.google.android.gms.nearby.Nearby
 import com.google.android.gms.nearby.connection.AdvertisingOptions
 import com.google.android.gms.nearby.connection.ConnectionInfo
@@ -130,6 +131,8 @@ class NearbyTransport(
             _radio.value = RadioState.DISCOVERING
         } catch (t: Throwable) {
             // Missing permission, radios off, or Play Services absent.
+            // Logged, not swallowed: "RADIO OFF" on screen is useless without the cause.
+            Log.w(TAG, "Nearby start failed: ${t.javaClass.simpleName}: ${t.message}", t)
             _radio.value = RadioState.UNAVAILABLE
             started = false
         }
@@ -199,6 +202,7 @@ class NearbyTransport(
     }
 
     private companion object {
+        const val TAG = "NearbyTransport"
         // Nearby accepts up to 32 KB inline payloads; packets are far smaller.
         const val MAX_PAYLOAD_BYTES = 32 * 1024
         const val SCAN_ON_MS = 8_000L
