@@ -1,0 +1,22 @@
+# Normalise line endings across Windows/macOS/Linux so diffs stay meaningful.
+* text=auto eol=lf
+
+# Windows-only scripts must stay CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# The Unix launcher must stay LF or it breaks on CI/macOS.
+gradlew text eol=lf
+
+# Binary assets: never normalise, never diff.
+*.png binary
+*.jpg binary
+*.webp binary
+*.ttf binary
+*.otf binary
+*.jar binary
+*.keystore binary
+*.jks binary
+*.apk binary
+*.aab binary

@@ -1,0 +1,29 @@
+# Gradle / build output
+.gradle/
+build/
+app/build/
+.kotlin/
+captures/
+.externalNativeBuild/
+.cxx/
+*.hprof
+
+# Local machine config and secrets
+local.properties
+.env
+*.jks
+*.keystore
+*.p12
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Packaged artifacts (never commit a build)
+*.apk
+*.aab

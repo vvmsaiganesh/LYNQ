@@ -1,0 +1,12 @@
+# Copy this file to local.properties and fill it in. local.properties is git-ignored.
+# Never commit your real local.properties — it holds machine paths and your API key.
+
+# Path to your Android SDK. Adjust the separator for your OS.
+# Windows (escape backslashes):
+sdk.dir=C\:\\Users\\you\\AppData\\Local\\Android\\Sdk
+# macOS / Linux:
+# sdk.dir=/Users/you/Library/Android/sdk
+
+# Optional. AI triage refinement is skipped when this is empty — the app is fully
+# functional offline without it. Get a key at https://featherless.ai
+FEATHERLESS_API_KEY=
