@@ -17,3 +17,9 @@ val SosRedDeep = Color(0xFF8B1A1A)
 val TextPrimary = Color(0xFFF2F5F9)
 val TextSecondary = Color(0xFF9AA6B8)
 val TextMuted = Color(0xFF5F6B7C)
+
+// Glass assistant palette: translucent blue system-glass, iOS/macOS style.
+val GlassBlue = Color(0xFF4DA3FF)
+val GlassFill = Color(0x1422FFFFFF)
+val GlassStroke = Color(0x33FFFFFF)
+val GlassEdge = Color(0x80BBDEFB)

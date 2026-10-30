@@ -32,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import com.flux.relay.ui.components.GlassAssistant
 import com.flux.relay.ui.components.HairlineDivider
 import com.flux.relay.ui.screens.AssistantScreen
 import com.flux.relay.ui.screens.ChatsScreen
@@ -63,36 +64,54 @@ fun RelayRoot(vm: RelayViewModel) {
 
     PermissionGate(onGranted = vm::startMesh) {
         val screen = vm.screen
-        BackHandler(enabled = screen !is Screen.Radar) { vm.back() }
+        BackHandler(enabled = screen !is Screen.Radar || vm.assistantOpen) {
+            if (vm.assistantOpen) vm.closeAssistant() else vm.back()
+        }
 
-        Column(
+        Box(
             Modifier
                 .fillMaxSize()
-                .background(Ink)
-                .safeDrawingPadding(),
+                .background(Ink),
         ) {
-            AnimatedContent(
-                targetState = screen,
-                transitionSpec = { fadeIn() togetherWith fadeOut() },
-                label = "screen",
-                modifier = Modifier.weight(1f),
-            ) { target ->
-                when (target) {
-                    is Screen.Radar -> RadarScreen(vm)
-                    is Screen.Chats -> ChatsScreen(vm)
-                    is Screen.Thread -> ThreadScreen(vm, target.peerId)
-                    is Screen.Sos -> SosScreen(vm)
-                    is Screen.Assistant -> AssistantScreen(vm)
-                    is Screen.Settings -> SettingsScreen(vm)
+            Column(
+                Modifier
+                    .fillMaxSize()
+                    .safeDrawingPadding(),
+            ) {
+                AnimatedContent(
+                    targetState = screen,
+                    transitionSpec = { fadeIn() togetherWith fadeOut() },
+                    label = "screen",
+                    modifier = Modifier.weight(1f),
+                ) { target ->
+                    when (target) {
+                        is Screen.Radar -> RadarScreen(vm)
+                        is Screen.Chats -> ChatsScreen(vm)
+                        is Screen.Thread -> ThreadScreen(vm, target.peerId)
+                        is Screen.Sos -> SosScreen(vm)
+                        is Screen.Assistant -> AssistantScreen(vm)
+                        is Screen.Settings -> SettingsScreen(vm)
+                    }
+                }
+
+                if (screen !is Screen.Thread && screen !is Screen.Sos && screen !is Screen.Assistant) {
+                    BottomBar(
+                        current = screen,
+                        onSelect = { vm.navigate(it) },
+                    )
                 }
             }
 
-            if (screen !is Screen.Thread && screen !is Screen.Sos && screen !is Screen.Assistant) {
-                BottomBar(
-                    current = screen,
-                    onSelect = { vm.navigate(it) },
-                )
-            }
+            // The assistant floats above every screen, glass-blue, always one tap away.
+            GlassAssistant(
+                expanded = vm.assistantOpen,
+                bubbles = vm.aiChat,
+                busy = vm.aiChatBusy,
+                onlineAnswer = vm.aiChatOnlineAnswer,
+                onOpen = vm::openAssistant,
+                onSend = vm::sendToAssistant,
+                onClose = vm::closeAssistant,
+            )
         }
     }
 }

@@ -49,6 +49,88 @@ class FeatherlessClient(
     val configured: Boolean get() = apiKey.isNotBlank()
 
     /** Returns null when offline, unconfigured, rate-limited or the model misbehaves. */
+    suspend fun chat(
+        question: String,
+        context: String,
+        batteryTier: String,
+        history: List<Pair<String, String>> = emptyList(),
+    ): String? = withContext(Dispatchers.IO) {
+        if (!configured || question.isBlank()) return@withContext null
+
+        val payload = buildJsonObject {
+            put("model", model)
+            put("temperature", 0.4)
+            put("max_tokens", 500)
+            put(
+                "messages",
+                buildJsonArray {
+                    add(
+                        buildJsonObject {
+                            put("role", "system")
+                            put(
+                                "content",
+                                """
+                                You are LYNQ, the assistant inside an offline emergency mesh messenger.
+                                You are warm, direct and concise - like Gemini or ChatGPT, two to four short sentences,
+                                no markdown lists unless asked. You help with: summarising recent messages,
+                                translating between languages, classifying urgency (1-5) and prioritising alerts.
+                                If the user asks something outside messaging, mesh, SOS, translation or battery
+                                policy, answer briefly and steer back to the emergency context. Never invent messages.
+                                Recent traffic (may be empty): $context
+                                Device battery tier: $batteryTier.
+                                """.trimIndent(),
+                            )
+                        },
+                    )
+                    history.takeLast(6).forEach { (role, content) ->
+                        add(
+                            buildJsonObject {
+                                put("role", role)
+                                put("content", content)
+                            },
+                        )
+                    }
+                    add(
+                        buildJsonObject {
+                            put("role", "user")
+                            put("content", question)
+                        },
+                    )
+                },
+            )
+        }
+
+        val request = Request.Builder()
+            .url("${baseUrl.trimEnd('/')}/chat/completions")
+            .header("Authorization", "Bearer $apiKey")
+            .header("Content-Type", "application/json")
+            .post(payload.toString().toRequestBody(JSON_MEDIA))
+            .build()
+
+        runCatching {
+            http.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) return@withContext null
+                val text = response.body?.string() ?: return@withContext null
+                parsePlainCompletion(text)
+            }
+        }.getOrNull()
+    }
+
+    private fun parsePlainCompletion(raw: String): String? {
+        val root = runCatching { json.parseToJsonElement(raw).jsonObject }.getOrNull() ?: return null
+        return root["choices"]
+            ?.let { it as? kotlinx.serialization.json.JsonArray }
+            ?.firstOrNull()
+            ?.jsonObject
+            ?.get("message")
+            ?.jsonObject
+            ?.get("content")
+            ?.jsonPrimitive
+            ?.contentOrNull
+            ?.trim()
+            ?.takeIf { it.isNotEmpty() }
+    }
+
     suspend fun refine(
         body: String,
         kind: String,

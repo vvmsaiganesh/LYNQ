@@ -1,6 +1,7 @@
 package com.flux.relay.ai
 
 import android.content.Context
+import com.flux.relay.ai.BatteryTiers.Tier
 import com.flux.relay.data.Message
 import com.flux.relay.data.MessageStore
 import kotlinx.coroutines.flow.StateFlow
@@ -41,7 +42,7 @@ class AiAssistant(context: Context, private val store: MessageStore) {
         var source = Source.OFFLINE
         var note: String? = null
 
-        if (configured && online.value) {
+        if (configured && online.value && BatteryTiers.allowsOnlineAi(BatteryTiers.Tier.NORMAL)) {
             val refined = client.refine(
                 body = message.body,
                 kind = message.kind.name,
@@ -75,4 +76,15 @@ class AiAssistant(context: Context, private val store: MessageStore) {
     }
 
     fun close() = monitor.close()
+
+    /** Free-form conversation through the hosted model; null means "fall back offline". */
+    suspend fun chat(
+        question: String,
+        context: List<Message>,
+        batteryTier: String,
+    ): String? {
+        if (!configured || !online.value) return null
+        val contextText = context.takeLast(12).joinToString(" | ") { "${it.peerName}: ${it.body.take(80)}" }
+        return client.chat(question, contextText, batteryTier)
+    }
 }

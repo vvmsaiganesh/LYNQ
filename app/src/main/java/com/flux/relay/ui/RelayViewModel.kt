@@ -9,6 +9,8 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.flux.relay.RelayApp
 import com.flux.relay.ai.AiAssistant
+import com.flux.relay.ai.AiChat
+import com.flux.relay.ai.BatteryTiers
 import com.flux.relay.ai.OfflineTriage
 import com.flux.relay.crypto.Identity
 import com.flux.relay.data.KnownPeer
@@ -79,6 +81,9 @@ class RelayViewModel(application: Application) : AndroidViewModel(application) {
     var lowPower: Boolean by mutableStateOf(false)
         private set
 
+    var batteryTier: BatteryTiers.Tier by mutableStateOf(BatteryTiers.Tier.NORMAL)
+        private set
+
     var banner: String? by mutableStateOf(null)
         private set
 
@@ -125,6 +130,7 @@ class RelayViewModel(application: Application) : AndroidViewModel(application) {
             // Under 15%: prefer staying alive over fast discovery.
             lowPower = true
         }
+        batteryTier = BatteryTiers.tierFor(BatteryPolicy.level(getApplication()))
         viewModelScope.launch {
             services.messageStore.messages.collect {
                 messages = it
@@ -236,9 +242,70 @@ class RelayViewModel(application: Application) : AndroidViewModel(application) {
         screen = Screen.Radar
     }
 
+    // ------------------------------------------------------------- floating assistant
+
+    var assistantOpen: Boolean by mutableStateOf(false)
+        private set
+
+    fun openAssistant() {
+        assistantOpen = true
+    }
+
+    fun closeAssistant() {
+        assistantOpen = false
+    }
+
     fun setLowPowerMode(enabled: Boolean) {
         lowPower = enabled
         mesh?.setLowPower(enabled)
+    }
+
+    // ------------------------------------------------------------- AI chat (glass assistant)
+
+    var aiChat: List<AiChat.Bubble> by mutableStateOf(emptyList())
+        private set
+
+    var aiChatBusy: Boolean by mutableStateOf(false)
+        private set
+
+    /** True when the hosted model answered the last turn; drives the online/offline chip in the sheet. */
+    var aiChatOnlineAnswer: Boolean by mutableStateOf(false)
+        private set
+
+    private val chat = AiChat(services.messageStore, ai)
+
+    fun aiGreeting(): String = chat.greeting()
+
+    fun sendToAssistant(text: String) {
+        if (text.isBlank() || aiChatBusy) return
+        var placeholder: AiChat.Bubble? = null
+        chat.onUserMessage(text) { bubble ->
+            if (bubble.pending) {
+                placeholder = bubble
+                aiChat = chat.snapshot()
+            }
+        }
+        aiChat = chat.snapshot()
+        aiChatBusy = true
+        viewModelScope.launch {
+            val tier = batteryTier
+            val reply: String = if (ai.configured && ai.online.value && BatteryTiers.allowsOnlineAi(tier)) {
+                ai.chat(question = text, context = messages, batteryTier = tier.label)
+                    ?: fallback(text)
+            } else {
+                fallback(text)
+            }
+            aiChatOnlineAnswer = ai.configured && ai.online.value && BatteryTiers.allowsOnlineAi(tier)
+            aiChat = chat.snapshot().map { if (it.pending) it.copy(text = reply, pending = false, sourceLabel = if (aiChatOnlineAnswer) "Featherless" else "On-device") else it }
+            aiChatBusy = false
+        }
+    }
+
+    private fun fallback(text: String): String =
+        chat.resolveOffline(text, messages, aiLanguage, BatteryTiers.describe(batteryTier))
+
+    fun clearAiChat() {
+        aiChat = emptyList()
     }
 
     fun verifyPeer(fingerprint: String, verified: Boolean) {
